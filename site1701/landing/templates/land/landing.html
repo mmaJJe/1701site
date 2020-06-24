@@ -1,0 +1,187 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <link href="https://fonts.googleapis.com/css2?family=Do+Hyeon&family=Odibee+Sans&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{% static 'landingPage/css/landingPage.css' %}">
+</head>
+<body>
+    <nav>
+        <div class="logo">1701</div>
+    </nav>
+    <!-- 시간표 -->
+    <div class="timeTable">
+        <button id="preBtn"><i class="fas fa-arrow-left fa-lg"></i></button>
+            <div class="dayCardSlide">
+                {% for time in timetable %}
+                <div class="dayCard">
+                    <h2 class="days">{{time.days}}</h2>
+                    <div class="am_pm">오전</div>
+                    <div class="workers">{{time.am_workers}}</div>
+                    <div class="am_pm">오후</div>
+                    <div class="workers">{{time.pm_workers}}</div>
+                </div>
+                {% endfor %}
+            </div>
+            <button id="nextBtn"><i class="fas fa-arrow-right fa-lg"></i></button>
+        </div>
+    <div class="manageBar">
+        <!-- <button>시간표 수정하기</button> -->
+    </div>
+    <!-- 시간 바꾸기 -->
+    <div class="changeTime">
+        <div class="changeTimeForm" >
+            <h3>시간변경 글쓰기</h3>
+            <form action="" method="POST" id="changeTimeForm">
+                {% csrf_token %}
+                <div class="changeTimeFormInputs">
+                    <input class="formInput" type="text" id="askPerson" placeholder="요청한 사람" required>
+                    <input class="formInput" type="text" id="askWhen" placeholder="요청한 사람의 언제" required>
+                    <input class="formInput" type="text" id="changePerson" placeholder="바꿔준 사람" required>
+                    <input class="formInput" type="text" id="changeWhen" placeholder="바꿔준 사람의 언제" required>
+                </div>
+                <button type="submit">글쓰기</button>
+            </form>
+        </div>
+    </div>
+    <div class="timeChangeTitle">
+        <h3 >시간변경 게시판</h3>
+    </div>
+    <div class="search">
+        <input type="text" class="search-input" placeholder="검색창 (요일, 이름 검색)">
+    </div>
+        <div class="changePost">
+            {% for post in timeChangePosts%}
+            <div class="posts">
+                <div class="postMenu" id={{post.id}}>
+                    <button onclick="editPost(event)">수정</button>
+                    <button onclick="delPost(event)">삭제</button>
+                </div>
+                <p>{{post.content}}</p>
+            </div>
+            {% endfor %}
+        </div>
+
+    <script src="https://code.jquery.com/jquery-3.5.1.min.js"
+        integrity="sha256-9/aliU8dGd2tb6OSsuzixeV4y/faTqgFtohetphbbj0="
+        crossorigin="anonymous"></script>
+
+    <script>
+    function editPost(event){
+        
+        const editBtn = event.target
+        //  editPost ==> class="posts" 인 div
+        console.log(editBtn)
+        const editPost = editBtn.parentNode.parentNode;
+        console.dir (editPost)
+        // editPostText ==> p태그
+        const editPostText = editPost.children[1]
+        console.log(editPostText)
+        // originText ==> 원래 쓰여져 있던 글
+        const originText = editPostText.innerText
+        console.log(editPostText)
+
+        editPostText.innerHTML = `<form class="editForm">
+                                    <input type="text" id="editInput" placeholder="${originText}">
+                                    <button type="submit">완료</button>
+                                </form>`
+        // editInput ==> 수정을 누르면 뜨는 input
+        const editInput = editPostText.childNodes[0][0]
+        editInput.value = originText
+        // editForm ==> 수정을 누르면 뜨는 form
+        const editForm = document.querySelector(".editForm")
+        
+        editForm.addEventListener("submit",function(event){
+            event.preventDefault();
+            if(editInput.value === "" || editInput.value.length < 7 ){
+                editInput.value = originText
+            }
+            editcontent =  editInput.value
+            let parsedata = {
+                "editcontent":editcontent,
+                "origincontent":originText
+            }
+            $.ajax({
+                type: 'POST',
+                url: "{% url 'editPost' %}",
+                data: parsedata,
+                success: function (response) {
+                    console.log("success")
+                    editPostText.innerText = editInput.value
+                },
+                error: function (response) {
+                    // alert the error if any error occured
+                    alert(response["responseJSON"]["error"]);
+                }
+            })
+        })
+    }
+
+
+        function delPost(event){
+            const delBtn = event.target
+            const delPost = delBtn.parentNode.parentNode;
+            console.dir(delPost)
+            const delcontent = delPost.children[1].innerText
+            $.ajax({
+                type: 'POST',
+                url: "{% url 'delPost' %}",
+                data: {"content":delcontent},
+                success: function (response) {
+                    console.log("success")
+                    changePost.removeChild(delPost)
+                },
+                error: function (response) {
+                    // alert the error if any error occured
+                    alert(response["responseJSON"]["error"]);
+                }
+            })
+        }
+
+        $("#changeTimeForm").submit(function (e) {
+        e.preventDefault();
+        const changeTimeForminputs = document.querySelectorAll(".formInput")
+        console.log(changeTimeForminputs)
+        let sentence = ""
+        const add = ['의 ','시간과 ','의 ','시간을 바꿈']
+        for(let i = 0;i<changeTimeForminputs.length;i++){
+            push = changeTimeForminputs[i].value + add[i]
+            sentence = sentence + push;
+            changeTimeForminputs[i].value = ""
+        }
+        $.ajax({
+            type: 'POST',
+            url: "{% url 'createPost' %}",
+            data: {"content":sentence},
+            success: function (response) {
+                console.log("success")
+                const changePosts = document.querySelectorAll(".posts")
+                let div = document.createElement("div");
+                div.classList.add("posts");
+                const id = changePosts.length + 1
+                div.innerHTML = `<div class="postMenu" id="${id}">
+                                    <button id="edit${id}">수정</button>
+                                    <button id="del${id}">삭제</button>
+                                </div>
+                                <p>${sentence}</p>`
+                
+                const editBtn = div.querySelector(`#edit${id}`)
+                editBtn.addEventListener("click",editPost)
+                const delBtn = div.querySelector(`#del${id}`)
+                delBtn.addEventListener("click",delPost)
+                changePost.appendChild(div)
+            },
+            error: function (response) {
+                // alert the error if any error occured
+                alert(response["responseJSON"]["error"]);
+            }
+        })
+    })
+    </script>
+    <script src="{% static 'landingPage/js/landingPage2.js' %}"></script>
+    <script src="https://use.fontawesome.com/releases/v5.2.0/js/all.js"></script>
+</body>
+</html>
